@@ -8,6 +8,7 @@ module OmniContacts
       include ParseUtils
 
       attr_reader :auth_host, :authorize_path, :scope, :auth_token_path
+      attr_accessor :yahoo_guid
 
       def initialize *args
         super *args
@@ -16,22 +17,38 @@ module OmniContacts
         @scope = 'sdct-r'
         @auth_token_path = '/oauth2/get_token'
         @contacts_host = 'social.yahooapis.com'
+        @contacts_path = ''
+        @self_path = ''
       end
 
-      def fetch_contacts_from_token_and_verifier auth_token, auth_token_secret, auth_verifier
-        (access_token, access_token_secret, guid) = fetch_access_token(auth_token, auth_token_secret, auth_verifier, ['xoauth_yahoo_guid'])
-        fetch_current_user(access_token, access_token_secret, guid)
-        contacts_path = "/v1/user/#{guid}/contacts"
-        contacts_response = https_get(@contacts_host, contacts_path, contacts_req_params(access_token, access_token_secret, contacts_path))
+      def fetch_contacts_using_access_token access_token, access_token_secret
+        @contacts_path = "/v1/user/#{self.yahoo_guid}/contacts"
+        @self_path = "/v1/user/#{self.yahoo_guid}/profile"
+        fetch_current_user(access_token)
+        contacts_response = https_get(@contacts_host, @contacts_path, :access_token => access_token, :format => 'json')
         contacts_from_response contacts_response
       end
 
-      def fetch_current_user access_token, access_token_secret, guid
-        self_path = "/v1/user/#{guid}/profile"
-        self_response =  https_get(@contacts_host, self_path, contacts_req_params(access_token, access_token_secret, self_path))
+      def fetch_current_user access_token
+        self_response =  https_get(@contacts_host, @self_path, :access_token => access_token, :format => 'json')
         user = current_user self_response
         set_current_user user
       end
+
+      # def fetch_contacts_from_token_and_verifier auth_token, auth_token_secret, auth_verifier
+      #   (access_token, access_token_secret, guid) = fetch_access_token(auth_token, auth_token_secret, auth_verifier, ['xoauth_yahoo_guid'])
+      #   fetch_current_user(access_token, access_token_secret, guid)
+      #   contacts_path = "/v1/user/#{guid}/contacts"
+      #   contacts_response = https_get(@contacts_host, contacts_path, contacts_req_params(access_token, access_token_secret, contacts_path))
+      #   contacts_from_response contacts_response
+      # end
+
+      # def fetch_current_user access_token, access_token_secret, guid
+      #   self_path = "/v1/user/#{guid}/profile"
+      #   self_response =  https_get(@contacts_host, self_path, contacts_req_params(access_token, access_token_secret, self_path))
+      #   user = current_user self_response
+      #   set_current_user user
+      # end
 
       private
 

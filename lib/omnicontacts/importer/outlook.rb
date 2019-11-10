@@ -16,9 +16,9 @@ module OmniContacts
         @authorize_path = "/common/oauth2/v2.0/authorize"
         @scope = options[:permissions] || "https://outlook.office.com/contacts.read"
         @auth_token_path = "/common/oauth2/v2.0/token"
-        @contacts_host = "outlook.office.com"
-        @contacts_path = "/api/v2.0/me/contacts"
-        @self_path = "/api/v2.0/me"
+        @contacts_host = "graph.microsoft.com"
+        @contacts_path = "/v1.0/me/contacts"
+        @self_path = "/v1.0/me"
       end
 
       def fetch_contacts_using_access_token access_token, token_type
@@ -43,16 +43,18 @@ module OmniContacts
         return nil if me.nil?
         me = JSON.parse(me)
 
-        name_splitted = me["DisplayName"].split(" ")
+        name_splitted = me["displayName"].split(" ")
         first_name = name_splitted.first
         last_name = name_splitted.last if name_splitted.size > 1
 
         user = empty_contact
-        user[:id]         = me["Id"]
-        user[:email]      = me["EmailAddress"]
-        user[:name]       = me["DisplayName"]
-        user[:first_name] = normalize_name(first_name)
-        user[:last_name]  = normalize_name(last_name)
+        user[:id]         = me["id"]
+        user[:email]      = me["mail"] || me["userPrincipalName"]
+        user[:name]       = me["displayName"]
+        # user[:first_name] = normalize_name(first_name)
+        # user[:last_name]  = normalize_name(last_name)
+        user[:first_name] = me["givenName"] || normalize_name(first_name)
+        user[:last_name]  = me["surname"] || normalize_name(last_name)
         user
       end
 
@@ -63,20 +65,20 @@ module OmniContacts
           contact = empty_contact
           # Full fields reference:
           # https://msdn.microsoft.com/office/office365/api/complex-types-for-mail-contacts-calendar#RESTAPIResourcesContact
-          contact[:id]         = entry["Id"]
-          contact[:first_name] = entry["GivenName"]
-          contact[:last_name]  = entry["Surname"]
-          contact[:name]       = entry["DisplayName"]
-          contact[:email]      = parse_email(entry["EmailAddresses"])
-          contact[:birthday]   = birthday(entry["Birthday"])
+          contact[:id]         = entry["id"]
+          contact[:first_name] = entry["givenName"]
+          contact[:last_name]  = entry["surname"]
+          contact[:name]       = entry["displayName"]
+          contact[:email]      = parse_email(entry["emailAddresses"])
+          contact[:birthday]   = birthday(entry["birthday"])
 
-          address = [entry["HomeAddress"], entry["BusinessAddress"], entry["OtherAddress"]].reject(&:empty?).first
+          address = [entry["homeAddress"], entry["businessAddress"], entry["otherAddress"]].reject(&:empty?).first
           if address
-            contact[:address_1] = address["Street"]
-            contact[:city]      = address["City"]
-            contact[:region]    = address["State"]
-            contact[:postcode]  = address["PostalCode"]
-            contact[:country]   = address["CountryOrRegion"]
+            contact[:address_1] = address["street"]
+            contact[:city]      = address["city"]
+            contact[:region]    = address["state"]
+            contact[:postcode]  = address["postalCode"]
+            contact[:country]   = address["countryOrRegion"]
           end
 
           contacts << contact if contact[:name] || contact[:first_name]
@@ -92,7 +94,7 @@ module OmniContacts
 
       def parse_email emails
         return nil if emails.nil?
-        emails.map! { |email| email["Address"] }
+        emails.map! { |email| email["address"] }
         emails.select! { |email| valid_email? email }
         emails.first
       end

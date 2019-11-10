@@ -40,7 +40,11 @@ module OmniContacts
 
       # Fetches the access token from the authorization server using the given authorization code.
       def fetch_access_token code
-        access_token_from_response https_post(auth_host, auth_token_path, token_req_params(code))
+        response = https_post(auth_host, auth_token_path, token_req_params(code))
+        if auth_host == 'api.login.yahoo.com'
+          self.yahoo_guid = JSON.parse(response)['xoauth_yahoo_guid']
+        end
+        access_token_from_response response
       end
 
       private
